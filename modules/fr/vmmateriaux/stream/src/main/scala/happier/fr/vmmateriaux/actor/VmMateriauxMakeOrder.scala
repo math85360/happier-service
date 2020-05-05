@@ -10,11 +10,12 @@ import happier.actor._
 import akka.Done
 
 final case class NewOrder()
-case object VmMateriauxMakeOrder extends NormalizedSink[VmMateriauxAccountSession.Command] {
+case object VmMateriauxMakeOrder extends NormalizedSink {
+  type ParentCommand = VmMateriauxAccountSession.Command
   type Params = Nothing
   override type In = NewOrder
 
-  override def apply(parent: ActorRef[VmMateriauxAccountSession.Command], params: Params): Behavior[Command] = Behaviors.receive { (context, message) =>
+  override def apply(parent: ActorRef[ParentCommand], params: Params): Behavior[Command] = Behaviors.receive { (context, message) =>
     message match {
       case _ => Behaviors.unhandled
     }

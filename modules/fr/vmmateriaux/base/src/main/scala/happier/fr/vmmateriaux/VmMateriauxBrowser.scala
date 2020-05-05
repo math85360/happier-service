@@ -1,6 +1,7 @@
 package happier.fr.vmmateriaux
 
 import com.iz2use.common.Filter.defaultFilter.{ prepare => filter }
+import happier.api._
 import happier.api.document._
 import java.net.URL
 import java.time.format.{ DateTimeFormatter, DateTimeParseException }
@@ -12,8 +13,20 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
 //import net.ruippeixotog.scalascraper.model._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
+import happier.api.WebpageFormatWasChanged
 
-final object VmMateriauxBrowser {
+final object VmMateriauxBrowser extends SupplierBrowserBasedService {
+  type NextPage = String
+  final case class Document(officeName: String, date: LocalDate, reference: String, downloadLink: URL)
+  type Credentials = (String, String)
+
+  override def createBrowser(): HtmlUnitBrowser = {
+    val browser = new HtmlUnitBrowser()
+    val options = browser.underlying.getOptions()
+    options.setJavaScriptEnabled(false)
+    browser
+  }
+
   object DateFormat {
     val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     def apply(in: String): LocalDate =
@@ -24,30 +37,31 @@ final object VmMateriauxBrowser {
       catch { case e: DateTimeParseException => None }
   }
 
-  val serviceName = "VM Materiaux"
+  val serviceName = 'VmMateriaux
   private val baseUrl = "https://www.vm-materiaux.fr"
   private val customerBaseUrl = s"$baseUrl/customer/account"
   private val salesBaseUrl = s"$baseUrl/sales"
-  def login(loginPageDocument: HtmlUnitBrowser.HtmlUnitDocument, username: String, password: String, captcha: Option[String])(implicit browser: HtmlUnitBrowser) = {
+
+  def attemptLogin(loginPageDocument: HtmlUnitBrowser.HtmlUnitDocument, credentials: Credentials, captcha: Option[String])(implicit browser: HtmlUnitBrowser) = {
     val formKeyInput = loginPageDocument >> element("input[name='form_key']")
     browser.post(s"$customerBaseUrl/loginPost/", captcha.foldLeft(Map(
       "form_key" -> formKeyInput.attr("value"),
-      "login[username]" -> username,
-      "login[password]" -> password,
+      "login[username]" -> credentials._1,
+      "login[password]" -> credentials._2,
       "send" -> ""))((map, captcha) => map + ("captcha[user_login]" -> captcha)))
   }
 
-  def loginStage(username: String, password: String, askCaptcha: URL => Future[String])(implicit browser: HtmlUnitBrowser, ec: ExecutionContext): Future[Unit] = {
+  def login(credentials: Credentials, askCaptcha: URL => Future[String])(implicit browser: HtmlUnitBrowser, ec: ExecutionContext): Future[Unit] = {
     val p = Promise[Unit]
     val loginPageDocument = browser.get(s"$customerBaseUrl/login/")
-    browser.underlying.waitForBackgroundJavaScriptStartingBefore(500)
-    val firstAttemptLoginDocument = login(loginPageDocument, username, password, None)
-    browser.underlying.waitForBackgroundJavaScriptStartingBefore(500)
+    //browser.underlying.waitForBackgroundJavaScriptStartingBefore(500)
+    val firstAttemptLoginDocument = attemptLogin(loginPageDocument, credentials, None)
+    //browser.underlying.waitForBackgroundJavaScriptStartingBefore(500)
     firstAttemptLoginDocument >?> attr("src")("img.captcha-img") match {
       case Some(captchaImgSource) =>
         p.completeWith {
           askCaptcha(new URL(captchaImgSource)).map { code =>
-            login(firstAttemptLoginDocument, username, password, Some(code))
+            attemptLogin(firstAttemptLoginDocument, credentials, Some(code))
             ()
           }
         }
@@ -71,23 +85,17 @@ final object VmMateriauxBrowser {
         val url = currentPage.getOrElse(s"$salesBaseUrl/$part/history/")
         Future(browser.get(url)).flatMap { doc =>
           scrapeDocumentListPage(doc) match {
-            case None => Future.failed(WebpageFormatWasChanged(serviceName, category))
+            case None => Future.failed(DocumentCategoryUnhandled(serviceName, category))
             case Some(value) => Future.successful(value)
           }
         }
     }
   }
 
-  final case class Document(officeName: String, date: LocalDate, reference: String, downloadLink: URL)
-
   def downloadDocument(document: Document)(implicit browser: HtmlUnitBrowser, ec: ExecutionContext) = Future {
-    val response = browser.get(document.downloadLink.toString).window.getEnclosedPage.getWebResponse()
-    val dispositions = Option(response.getResponseHeaderValue("Content-Disposition")).toSeq.flatMap(_.split(" *; *"))
-    val name = dispositions.find(_.startsWith("filename"))
-      .orElse(dispositions.find(_.startsWith("name")))
-      .map(_.dropWhile(_ != '=').drop(1).stripPrefix("\"").stripSuffix("\""))
-      .getOrElse(document.reference.concat(".pdf"))
-    (name, response.getContentType, response.getContentLength, response.getContentAsStream)
+    DownloadingStream.fromBrowserResponse(
+      browser.get(document.downloadLink.toString).window.getEnclosedPage.getWebResponse(),
+      document.reference.concat(".pdf"))
   }
 
   def scrapeDocumentListPage(doc: HtmlUnitDocument): Option[(List[Document], Option[String])] =

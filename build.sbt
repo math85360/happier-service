@@ -18,11 +18,33 @@ import sbt.Project.projectToRef
 
 // include text identification for documents downloaded
 lazy val frBricodepot = baseModule("fr/bricodepot")
+    .settings(
+        libraryDependencies ++= Seq(
+            "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+            "com.iz2use" %% "react-components" % "0.0.8-SNAPSHOT"
+        )
+    )
 lazy val frBricodepotRead = readModule("fr/bricodepot").dependsOn(frBricodepot)
 lazy val frBricodepotStream = streamModule("fr/bricodepot").dependsOn(frBricodepot)
 lazy val frCedeo = baseModule("fr/cedeo")
+    .settings(
+        libraryDependencies ++= Seq(
+            "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+            "com.iz2use" %% "react-components" % "0.0.8-SNAPSHOT"
+        )
+    )
 lazy val frCedeoRead = readModule("fr/cedeo").dependsOn(frCedeo)
 lazy val frCedeoStream = streamModule("fr/cedeo").dependsOn(frCedeo)
+    .settings(
+        libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
+        initialCommands in console += 
+        """
+            |import happier.fr.cedeo._
+            |import happier.fr.cedeo.actor._
+            |import happier.fr.cedeo.model._
+            |implicit val browser = CedeoBrowser.createBrowser()
+        """.stripMargin
+    )
 lazy val frEDF = baseModule("fr/edf")
 lazy val frEDFRead = readModule("fr/edf").dependsOn(frEDF)
 lazy val frEDFStream = streamModule("fr/edf").dependsOn(frEDF)
@@ -30,8 +52,24 @@ lazy val frIonos = baseModule("fr/ionos")
 lazy val frIonosRead = readModule("fr/ionos").dependsOn(frIonos)
 lazy val frIonosStream = streamModule("fr/ionos").dependsOn(frIonos)
 lazy val frLeBonCoin = baseModule("fr/leboncoin")
+    .settings(
+        libraryDependencies ++= Seq(
+            "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+            "com.iz2use" %% "react-components" % "0.0.8-SNAPSHOT"
+        )
+    )
 lazy val frLeBonCoinRead = readModule("fr/leboncoin").dependsOn(frLeBonCoin)
 lazy val frLeBonCoinStream = streamModule("fr/leboncoin").dependsOn(frLeBonCoin)
+    .settings(
+      libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
+      initialCommands in console += 
+      """
+        |import happier.fr.leboncoin._
+        |import happier.fr.leboncoin.actor._
+        |import happier.fr.leboncoin.model._
+        |implicit val browser = LeBonCoinBrowser.createBrowser()
+      """.stripMargin
+    )
 lazy val frLeroyMerlin = baseModule("fr/leroymerlin")
 lazy val frLeroyMerlinRead = readModule("fr/leroymerlin").dependsOn(frLeroyMerlin)
 lazy val frLeroyMerlinStream = streamModule("fr/leroymerlin").dependsOn(frLeroyMerlin)
@@ -42,6 +80,12 @@ lazy val frMisterBooking = baseModule("fr/misterbooking")
 lazy val frMisterBookingRead = readModule("fr/misterbooking").dependsOn(frMisterBooking)
 lazy val frMisterBookingStream = streamModule("fr/misterbooking").dependsOn(frMisterBooking)
 lazy val frOrange = baseModule("fr/orange")
+    .settings(
+        libraryDependencies ++= Seq(
+            "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+            "com.iz2use" %% "react-components" % "0.0.8-SNAPSHOT"
+        )
+    )
 lazy val frOrangeRead = readModule("fr/orange").dependsOn(frOrange)
 lazy val frOrangeStream = streamModule("fr/orange").dependsOn(frOrange)
 lazy val frOVH = baseModule("fr/ovh")
@@ -51,6 +95,12 @@ lazy val frSageOne = baseModule("fr/sageone")
 lazy val frSageOneRead = readModule("fr/sageone").dependsOn(frSageOne)
 lazy val frSageOneStream = streamModule("fr/sageone").dependsOn(frSageOne)
 lazy val frSeLoger = baseModule("fr/seloger")
+    .settings(
+        libraryDependencies ++= Seq(
+            "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+            "com.iz2use" %% "react-components" % "0.0.8-SNAPSHOT"
+        )
+    )
 lazy val frSeLogerRead = readModule("fr/seloger").dependsOn(frSeLoger)
 lazy val frSeLogerStream = streamModule("fr/seloger").dependsOn(frSeLoger)
 lazy val frVmMateriaux = baseModule("fr/vmmateriaux")
@@ -64,29 +114,11 @@ lazy val frVmMateriauxRead = readModule("fr/vmmateriaux").dependsOn(frVmMateriau
 lazy val frVmMateriauxStream = streamModule("fr/vmmateriaux").dependsOn(frVmMateriaux)
     .settings(
       libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
-      initialCommands in console := 
+      initialCommands in console += 
       """
-        |import akka.actor.typed._
-        |import akka.actor.typed.scaladsl._
-        |import akka.stream._
-        |import akka.stream.scaladsl._
-        |import akka.stream.typed.scaladsl._
-        |import akka.util.Timeout
-        |import happier.actor._
-        |import happier.api._
-        |import happier.api.document._
         |import happier.fr.vmmateriaux._
         |import happier.fr.vmmateriaux.actor._
-        |import net.ruippeixotog.scalascraper.browser.HtmlUnitBrowser
-        |import org.slf4j.event.Level
-        |import scala.concurrent.duration._
-        |import akka.actor.typed.scaladsl.AskPattern._
-        |
-        |val behavior = Behaviors.logMessages(LogOptions().withLevel(Level.TRACE), Supervisor())
-        |implicit val system = ActorSystem(behavior, "temp")
-        |import system.executionContext
-        |implicit val browser = new HtmlUnitBrowser()
-        |browser.underlying.getOptions().setJavaScriptEnabled(false)
+        |implicit val browser = VmMateriauxBrowser.createBrowser()
       """.stripMargin
     )
 
@@ -118,14 +150,35 @@ lazy val aggregatedProjects  = for {
 
 lazy val root = project.in(file("."))
   .settings(noPublishSettings)
-  /*.settings(
-      initialCommands in console := 
-      """
-        |import ...
-      """.stripMargin
-  )*/
   .aggregate(aggregatedProjectRefs: _*)
   .aggregate(core, read, stream)
+
+lazy val all = project.in(file("all"))
+  .settings(noPublishSettings)
+  .settings(
+      initialCommands in console := 
+      """
+        |import akka.actor.typed._
+        |import akka.actor.typed.scaladsl._
+        |import akka.stream._
+        |import akka.stream.scaladsl._
+        |import akka.stream.typed.scaladsl._
+        |import akka.util.Timeout
+        |import happier.actor._
+        |import happier.api._
+        |import happier.api.document._
+        |import net.ruippeixotog.scalascraper.browser.HtmlUnitBrowser
+        |import org.slf4j.event.Level
+        |import scala.concurrent.duration._
+        |import akka.actor.typed.scaladsl.AskPattern._
+        |
+        |val behavior = Behaviors.logMessages(LogOptions().withLevel(Level.TRACE), Supervisor())
+        |implicit val system = ActorSystem(behavior, "temp")
+        |import system.executionContext
+      """.stripMargin
+  )
+  .dependsOn(core, read, stream)
+  .dependsOn(aggregatedProjects: _*)
 
 lazy val read = module("read")
     .settings(
@@ -149,6 +202,7 @@ lazy val stream = module("stream")
 lazy val core = module("core")
     .settings(
         libraryDependencies ++= Seq(
+        "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
         "de.heikoseeberger" %% "akka-http-circe" % "1.31.0",
         "com.lihaoyi" %% "utest" % Versions.utest % "test",
         "io.circe" %% "circe-core" % Versions.circe,
@@ -186,9 +240,35 @@ def readModule(path: String) = module(s"$path/read")
     .settings(readSettings)
     .dependsOn(read)
     
-def streamModule(path: String) = module(s"$path/stream")
-    .settings(streamSettings)
-    .dependsOn(stream)
+def streamModule(path: String) = {
+    val m = path.dropWhile(_!='/').stripPrefix("/")
+    module(s"$path/stream")
+        .settings(streamSettings)
+        .dependsOn(stream)
+        .settings(
+        libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3",
+        initialCommands in console += 
+        s"""
+            |import akka.actor.typed._
+            |import akka.actor.typed.scaladsl._
+            |import akka.stream._
+            |import akka.stream.scaladsl._
+            |import akka.stream.typed.scaladsl._
+            |import akka.util.Timeout
+            |import happier.actor._
+            |import happier.api._
+            |import happier.api.document._
+            |import net.ruippeixotog.scalascraper.browser.HtmlUnitBrowser
+            |import org.slf4j.event.Level
+            |import scala.concurrent.duration._
+            |import akka.actor.typed.scaladsl.AskPattern._
+            |
+            |val behavior = Behaviors.logMessages(LogOptions().withLevel(Level.TRACE), Supervisor())
+            |implicit val system = ActorSystem(behavior, "temp")
+            |import system.executionContext
+        """.stripMargin
+        )
+    }
 
 lazy val noPublishSettings = Seq(
 publish := {},

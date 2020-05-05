@@ -5,6 +5,7 @@ package object document {
   sealed abstract class DocumentCategory extends Product with Serializable
   object DocumentCategory {
     case object Invoice extends DocumentCategory
+    case object CreditInvoice extends DocumentCategory
     case object DeliveryForm extends DocumentCategory
     case object Order extends DocumentCategory
     case object Quote extends DocumentCategory
@@ -13,8 +14,5 @@ package object document {
     case object Statement extends DocumentCategory
   }
 
-  final case class DocumentCategoryNotHandledException(serviceName: String, category: DocumentCategory) extends RuntimeException(s"Document Category $category not handled by $serviceName")
-
-  sealed trait ScrapingException extends RuntimeException
-  final case class WebpageFormatWasChanged(serviceName: String, category: DocumentCategory) extends ScrapingException
+  final case class DocumentCategoryNotHandledException(serviceName: Symbol, category: DocumentCategory) extends RuntimeException(s"Document Category $category not handled by $serviceName")
 }

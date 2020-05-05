@@ -24,34 +24,42 @@ object NormalizedService {
     type Command = Command0
   }
 }
-trait NormalizedSession[ParentCommand] {
+trait NormalizedSession {
+  type ParentCommand
   type Command
   type Params
   def apply(parent: ActorRef[ParentCommand], params: Params): Behavior[Command]
 }
-trait NormalizedDocumentSession[ParentCommand] extends NormalizedSession[ParentCommand] {
+trait NormalizedDocumentSession extends NormalizedSession {
   type Document
 }
 
-trait NormalizedStream[ParentCommand] {
+trait NormalizedStream {
+  type ParentCommand
   type Command
   type Params
   def apply(parent: ActorRef[ParentCommand], params: Params): Behavior[Command]
 }
 
-trait NormalizedSource[ParentCommand] extends NormalizedStream[ParentCommand] {
+trait NormalizedSource extends NormalizedStream {
   type Out
 }
 
-trait NormalizedDocumentSource[ParentCommand, Document] extends NormalizedSource[ParentCommand] {
+object NormalizedDocumentSource {
+  type Aux[ParentCommand0] = NormalizedDocumentSource {
+    type ParentCommand = ParentCommand0
+  }
+}
+trait NormalizedDocumentSource extends NormalizedSource {
+  type Document
   final type Out = Document
 }
 
-trait NormalizedSink[ParentCommand] extends NormalizedStream[ParentCommand] {
+trait NormalizedSink extends NormalizedStream {
+  type ParentCommand
   type In
 }
 
-sealed trait StreamSourceCommand[T]
 sealed trait StreamSinkCommand[T]
 sealed trait StreamSourceMessage[T]
 sealed trait StreamSinkMessage
@@ -62,7 +70,7 @@ final case class StreamSourceMessageWrapper[T](msg: T) extends StreamSourceMessa
 //final case class StreamSinkMessageWrapper[+T ](ackTo: ActorRef[StreamSinkMessage], msg: T#In) extends StreamSinkCommand[T]
 final case class StreamSinkInit[T](ackTo: ActorRef[StreamSinkMessage]) extends StreamSinkCommand[T]
 
-final case class StreamAck[T]() extends StreamSourceCommand[T] with StreamSinkMessage
+final case object StreamAck extends StreamSinkMessage
 final case class StreamComplete[T]() extends StreamSourceMessage[T] with StreamSinkCommand[T]
 final case class StreamFail[T](ex: Throwable) extends StreamSourceMessage[T] with StreamSinkCommand[T]
 
@@ -88,27 +96,30 @@ object StartBehavior {
 }
 final case class BehaviorStarted[T](ref: ActorRef[T])
 
-abstract class StartService extends SupervisorCommand {
+abstract class FindService extends SupervisorCommand {
   type TargetCommand
   val service: NormalizedService.Aux[TargetCommand]
-  def replyTo: ActorRef[ServiceStarted[TargetCommand]]
+  def replyTo: ActorRef[ServiceFound[TargetCommand]]
   final def apply(context: ActorContext[SupervisorCommand]): ActorRef[TargetCommand] = {
-    val ref = context.spawn(Behaviors.logMessages(service()), service.name.toString)
-    context.watch(ref)
-    replyTo ! ServiceStarted(ref)
+    val ref = context.child(service.name.toString()).map(_.asInstanceOf[ActorRef[TargetCommand]]).getOrElse {
+      val ref = context.spawn(service(), service.name.toString)
+      context.watch(ref)
+      ref
+    }
+    replyTo ! ServiceFound(ref)
     ref
   }
 }
-object StartService {
+object FindService {
   def apply[SrvCmd](_service: NormalizedService.Aux[SrvCmd]) = {
-    final case class ConcreteStartService(replyTo: ActorRef[ServiceStarted[SrvCmd]]) extends StartService {
+    final case class ConcreteStartService(replyTo: ActorRef[ServiceFound[SrvCmd]]) extends FindService {
       final type TargetCommand = SrvCmd
       override val service = _service
     }
     ConcreteStartService.apply _
   }
 }
-final case class ServiceStarted[T](ref: ActorRef[T])
+final case class ServiceFound[T](ref: ActorRef[T])
 
 final case class SessionStarted[SessionCommand](ref: ActorRef[SessionCommand])
 final case class StreamStarted[StreamCommand](ref: ActorRef[StreamCommand])

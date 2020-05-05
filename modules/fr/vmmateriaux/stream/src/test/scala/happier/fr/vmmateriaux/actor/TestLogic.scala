@@ -17,20 +17,23 @@ object TestLogic {
   def apply(username: String, password: String)(implicit supervisor: ActorSystem[SupervisorCommand], timeout: Timeout) = {
     import supervisor.executionContext
     for {
-      ServiceStarted(serviceRef) <- supervisor.ref.ask(StartService(VmMateriauxService))
+      ServiceFound(serviceRef) <- supervisor.ref.ask(FindService(VmMateriauxService))
       SessionStarted(sessionRef) <- serviceRef.ask(VmMateriauxService.StartAccountSession((username, password), _))
       StreamStarted(documentRef) <- sessionRef.ask(VmMateriauxAccountSession.StartDocumentStream(DocumentCategory.Invoice, _))
     } yield {
       ActorSource.actorRefWithBackpressure[VmMateriauxDocumentSource.Message, VmMateriauxDocumentSource.Command](
         documentRef,
-        VmMateriauxDocumentSource.StreamControl(StreamAck()),
+        PaginatedDocumentSource.StreamAck(),
         { case StreamComplete() => CompletionStrategy.draining },
         { case StreamFail(ex) => ex })
         .collect { case happier.api.StreamSourceMessageWrapper(msg) => msg }
         .mapMaterializedValue { sourceRef =>
-          documentRef ! VmMateriauxDocumentSource.Init(sourceRef)
+          documentRef ! PaginatedDocumentSource.Init(sourceRef)
           sourceRef
         }
+      /*.mapAsync { doc =>
+          sessionRef.ask(VmMateriauxAccountSession.)
+        }*/
     }
   }
 }

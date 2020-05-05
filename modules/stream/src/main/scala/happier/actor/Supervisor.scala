@@ -39,7 +39,7 @@ object Supervisor {
   private def active(waitingCaptcha: List[AskCaptcha]): Behavior[SupervisorCommand] = Behaviors
     .receive { (context, message) =>
       message match {
-        case cmd: StartService =>
+        case cmd: FindService =>
           val ref = cmd(context)
           Behaviors.same
         case message @ AskCaptcha(url, replyTo) =>

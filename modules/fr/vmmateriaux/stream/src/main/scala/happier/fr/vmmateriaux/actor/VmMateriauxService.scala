@@ -7,18 +7,19 @@ import akka.actor.typed.scaladsl._
 import akka.actor.typed.scaladsl.AskPattern._
 import happier.api._
 import scala.concurrent.duration._
+import happier.actor.Throttler
+import happier.actor.ThrottlerStrategy
 
 object VmMateriauxService extends NormalizedService {
   override val name: Symbol = 'VmMateriaux
-  def apply() = started(Map.empty.withDefault(key => AccountSessions(key, Nil, Throttler(1, 1.second))))
+  def apply() = started(Map.empty.withDefault(key => AccountSessions(key, Nil)))
 
   final type AccountNumber = String
 
   sealed trait Command
   final case class StartAccountSession(params: VmMateriauxAccountSession.Params, replyTo: ActorRef[SessionStarted[VmMateriauxAccountSession.Command]]) extends Command
-  final case class Throttler(count: Int, per: FiniteDuration)
 
-  final case class AccountSessions(accountNumber: AccountNumber, sessions: List[ActorRef[VmMateriauxAccountSession.Command]], throttler: Throttler) {
+  final case class AccountSessions(accountNumber: AccountNumber, sessions: List[ActorRef[VmMateriauxAccountSession.Command]]) {
     def +(ref: ActorRef[VmMateriauxAccountSession.Command]) = copy(sessions = ref :: sessions)
     def -(ref: ActorRef[_]) = copy(sessions = sessions.filterNot(_ == ref))
   }
@@ -26,7 +27,7 @@ object VmMateriauxService extends NormalizedService {
   private def started( /*globalThrottler: Throttler,*/ sessions: Map[AccountNumber, AccountSessions]): Behavior[Command] = Behaviors.receive[Command] { (context, message) =>
     message match {
       case StartAccountSession(params, replyTo) =>
-        val ref = context.spawn(Behaviors.logMessages(VmMateriauxAccountSession(context.self, params)), "account")
+        val ref = context.spawnAnonymous(Behaviors.logMessages(VmMateriauxAccountSession(context.self, params)))
         context.watch(ref)
         replyTo ! SessionStarted(ref)
         val key = params._1
